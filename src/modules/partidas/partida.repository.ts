@@ -16,6 +16,13 @@ export class PartidaRepository extends BaseRepository<Partida> {
     return (await this.ejecutar('SELECT 1 FROM partidas WHERE sala_id = $1 AND estado = ANY($2)', [salaId, ESTADOS_EN_CURSO])) > 0;
   }
 
+  enPreparacion(salaId: string) {
+    return this.fila<Partida>(
+      `SELECT ${this.model.select()} FROM partidas WHERE sala_id = $1 AND estado = 'preparando' ORDER BY creado_en DESC LIMIT 1`,
+      [salaId],
+    );
+  }
+
   async siguienteNumero(salaId: string) {
     const r = await this.fila<{ n: number }>('SELECT coalesce(max(numero), 0) + 1 AS n FROM partidas WHERE sala_id = $1', [salaId]);
     return r!.n;

@@ -35,6 +35,11 @@ import { SalaRepository } from './modules/salas/sala.repository';
 import { SalaService } from './modules/salas/sala.service';
 import { SalaController } from './modules/salas/sala.controller';
 import { salaRoutes } from './modules/salas/sala.routes';
+import { BotsService } from './modules/salas/bots.service';
+import { ProgresoRepository } from './modules/progreso/progreso.repository';
+import { ProgresoService } from './modules/progreso/progreso.service';
+import { ProgresoController } from './modules/progreso/progreso.controller';
+import { progresoRoutes } from './modules/progreso/progreso.routes';
 import { reclamoModel } from './modules/reclamos/reclamo.model';
 import { ReclamoRepository } from './modules/reclamos/reclamo.repository';
 import { reclamoRoutes } from './modules/reclamos/reclamo.routes';
@@ -67,6 +72,7 @@ const reclamoRepo = new ReclamoRepository(reclamoModel);
 const partidaRepo = new PartidaRepository(partidaModel);
 const partidaTablaRepo = new PartidaTablaRepository(partidaTablaModel);
 const logroRepo = new LogroRepository(logroModel);
+const progresoRepo = new ProgresoRepository();
 
 // ---------- servicios ----------
 const fichasService = new FichasService(usuarioRepo, movimientoRepo);
@@ -78,10 +84,12 @@ const ganadoresService = new GanadoresService(partidaRepo, reclamoRepo, salaRepo
 const cantorService = new CantorService(
   partidaRepo, partidaTablaRepo, logroRepo, figuraRepo, cartaRepo, salaRepo, puntosService, fichasService, ganadoresService,
 );
-const partidaService = new PartidaService(
-  partidaRepo, partidaTablaRepo, logroRepo, reclamoRepo, figuraRepo, salaService, salaRepo, cantorService, fichasService,
-);
 const tablasPartidaService = new TablasPartidaService(partidaRepo, partidaTablaRepo, tablaRepo, salaService, fichasService);
+const botsService = new BotsService(salaRepo, salaService, usuarioRepo, partidaRepo, partidaTablaRepo, tablasPartidaService);
+const partidaService = new PartidaService(
+  partidaRepo, partidaTablaRepo, logroRepo, reclamoRepo, figuraRepo, salaService, salaRepo, cantorService, fichasService, botsService,
+);
+const progresoService = new ProgresoService(progresoRepo, usuarioRepo, puntosService, skinService);
 const authService = new AuthService(usuarioRepo, skinService);
 
 // ---------- controladores ----------
@@ -94,14 +102,18 @@ export const rutas = {
   '/cartas': catalogoRoutes(new BaseController(new BaseService(cartaRepo), cartaModel)),
   '/figuras': catalogoRoutes(new BaseController(new BaseService(figuraRepo), figuraModel)),
   '/tablas': tablaRoutes(new BaseController(tablaService, tablaModel)),
-  '/salas': salaRoutes(new SalaController(salaService)),
+  '/salas': salaRoutes(new SalaController(salaService, botsService)),
   '/partidas': partidaRoutes(partidaController),
   '/partida-tablas': partidaTablaRoutes(partidaController),
   '/reclamos': reclamoRoutes(new BaseController(new BaseService(reclamoRepo), reclamoModel)),
   '/movimientos': movimientoRoutes(new BaseController(new BaseService(movimientoRepo), movimientoModel)),
   '/puntos': puntosRoutes(new PuntosController(puntosService)),
   '/skins': skinRoutes(new SkinController(skinService)),
+  '/progreso': progresoRoutes(new ProgresoController(progresoService)),
 };
 
 /** Lo que necesita la capa de tiempo real. */
 export const realtimeDeps = { salaRepo };
+
+/** Lo que necesitan las tareas periódicas del servidor. */
+export const tareasDeps = { premiarSemanaPasada: () => progresoService.premiarSemanaPasada() };

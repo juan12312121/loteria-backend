@@ -31,7 +31,7 @@ export class AuthService {
 
   async login(correo: string, password: string) {
     const encontrado = await this.usuarios.porCorreoConHash(correo);
-    if (!encontrado || !(await bcrypt.compare(password, encontrado.password_hash)))
+    if (!encontrado || encontrado.rol === 'bot' || !(await bcrypt.compare(password, encontrado.password_hash)))
       throw new Unauthorized('Correo o contraseña incorrectos');
     const { password_hash: _hash, ...usuario } = encontrado;
     return { usuario, token: firmarToken({ id: usuario.id, rol: usuario.rol }) };

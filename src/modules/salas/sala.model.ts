@@ -26,6 +26,8 @@ export interface JugadorSala {
   rol: 'anfitrion' | 'jugador';
   conectado: boolean;
   unido_en: string;
+  bot: boolean;
+  avatar: string | null;
 }
 
 export class SalaModel extends BaseModel {

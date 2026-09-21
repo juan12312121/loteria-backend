@@ -61,7 +61,7 @@ export class SalaService extends BaseService<Sala> {
     if ((await this.salas.contarJugadores(sala.id)) >= sala.max_jugadores) throw new Conflict('La sala está llena');
     await this.salas.agregarJugador(sala.id, actor.id);
     const usuario = await this.usuarios.obtener(actor.id);
-    bus.emitir(sala.id, 'jugador:entro', { id: actor.id, nombre: usuario?.nombre });
+    bus.emitir(sala.id, 'jugador:entro', { id: actor.id, nombre: usuario?.nombre, bot: false });
     return sala;
   }
 
@@ -79,6 +79,10 @@ export class SalaService extends BaseService<Sala> {
 
   mias(usuarioId: string) {
     return this.salas.mias(usuarioId);
+  }
+
+  publicas(usuarioId: string) {
+    return this.salas.publicas(usuarioId);
   }
 
   private validarAnfitrion(sala: Sala, actor: Actor) {

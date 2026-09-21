@@ -4,7 +4,7 @@ import { NotFound } from '../http/HttpError';
 /** Quién hace la petición; lo pone el middleware auth. */
 export interface Actor {
   id: string;
-  rol: 'jugador' | 'admin';
+  rol: 'jugador' | 'admin' | 'bot';
 }
 
 /**

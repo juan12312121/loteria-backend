@@ -8,6 +8,7 @@ export function skinRoutes(ctrl: SkinController) {
   const r = Router();
   accion(r, 'get', '/catalogo', auth(), ctrl.catalogo);
   accion(r, 'get', '/mias', auth(), ctrl.mias);
+  accion(r, 'get', '/coleccion', auth(), ctrl.coleccion);
   accion(r, 'post', '/:id/canjear', auth(), ctrl.canjear);
   accion(r, 'post', '/:id/equipar', auth(), ctrl.equipar);
   accion(r, 'delete', '/equipo/:tipo', auth(), ctrl.quitar);

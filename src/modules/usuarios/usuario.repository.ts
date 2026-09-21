@@ -46,7 +46,30 @@ export class UsuarioRepository extends BaseRepository<Usuario> {
   }
 
   subirRacha(usuarioId: string) {
-    return this.ejecutar('UPDATE usuarios SET racha = racha + 1 WHERE id = $1', [usuarioId]);
+    return this.ejecutar('UPDATE usuarios SET racha = racha + 1, mejor_racha = greatest(mejor_racha, racha + 1) WHERE id = $1', [usuarioId]);
+  }
+
+  /**
+   * Registra la recompensa diaria solo si hoy no la ha cobrado (a prueba de doble clic).
+   * Devuelve los días seguidos resultantes o null si ya la cobró.
+   */
+  async registrarDiario(usuarioId: string, hoy: string, diasSeguidos: number): Promise<number | null> {
+    const r = await this.fila<{ dias_seguidos: number }>(
+      `UPDATE usuarios SET dias_seguidos = $3, ultimo_diario = $2::date
+       WHERE id = $1 AND (ultimo_diario IS NULL OR ultimo_diario < $2::date) RETURNING dias_seguidos`,
+      [usuarioId, hoy, diasSeguidos],
+    );
+    return r?.dias_seguidos ?? null;
+  }
+
+  /** Bots de la reserva que todavía no están en la sala. */
+  botsLibres(salaId: string) {
+    return this.filas<{ id: string; nombre: string }>(
+      `SELECT u.id, u.nombre FROM usuarios u
+       WHERE u.rol = 'bot' AND NOT EXISTS (SELECT 1 FROM sala_jugadores sj WHERE sj.sala_id = $1 AND sj.usuario_id = u.id)
+       ORDER BY random()`,
+      [salaId],
+    );
   }
 
   reiniciarRacha(usuarioId: string) {
@@ -65,9 +88,10 @@ export class UsuarioRepository extends BaseRepository<Usuario> {
 
   ranking(limite: number) {
     return this.filas(
-      `SELECT u.id, u.nombre, u.puntos, u.racha, sf.clave AS skin_ficha, sc.clave AS skin_carta
+      `SELECT u.id, u.nombre, u.puntos, u.racha, sf.clave AS skin_ficha, sc.clave AS skin_carta, sa.clave AS avatar
        FROM usuarios u LEFT JOIN skins sf ON sf.id = u.skin_ficha_id LEFT JOIN skins sc ON sc.id = u.skin_carta_id
-       ORDER BY u.puntos DESC, u.nombre LIMIT $1`,
+       LEFT JOIN skins sa ON sa.id = u.skin_avatar_id
+       WHERE u.rol <> 'bot' ORDER BY u.puntos DESC, u.nombre LIMIT $1`,
       [limite],
     );
   }

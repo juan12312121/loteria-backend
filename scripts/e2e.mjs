@@ -135,5 +135,89 @@ assert.equal((await api('GET', '/auth/yo', { token: tono.token })).fichas, antes
 await api('POST', `/partidas/${p2.id}/iniciar`, { token: tono.token, status: 403 });
 paso('cancelar reembolsa y solo el anfitrión controla la ronda (403)');
 
+// --- recompensa diaria ---
+const resumen = await api('GET', '/progreso', { token: tono.token });
+assert.equal(resumen.diario.disponible, true);
+const diario = await api('POST', '/progreso/diario', { token: tono.token });
+assert.equal(diario.puntos, 10);
+await api('POST', '/progreso/diario', { token: tono.token, status: 409 });
+assert.equal((await api('GET', '/progreso', { token: tono.token })).diario.disponible, false);
+paso('recompensa diaria: +10 el día 1 y no se cobra dos veces (409)');
+
+// --- misiones ---
+const misiones = (await api('GET', '/progreso', { token: ganador.token })).misiones;
+const ganarHoy = misiones.find((m) => m.clave === 'd_ganar');
+assert.ok(ganarHoy.completada && !ganarHoy.cobrada);
+assert.equal(misiones.find((m) => m.clave === 'd_jugar').progreso, 1);
+const cobro = await api('POST', '/progreso/misiones/d_ganar/cobrar', { token: ganador.token });
+assert.equal(cobro.puntos, ganarHoy.puntos);
+await api('POST', '/progreso/misiones/d_ganar/cobrar', { token: ganador.token, status: 409 });
+await api('POST', '/progreso/misiones/s_ganar/cobrar', { token: ganador.token, status: 422 });
+paso(`misiones: "${ganarHoy.titulo}" cobrada una sola vez; incompleta rechazada (422)`);
+
+// --- ranking semanal y perfil ---
+const ranking = await api('GET', '/progreso/ranking', { token: rosa.token });
+assert.ok(ranking.filas.some((f) => f.usuario_id === ganador.usuario.id && f.puntos > 0));
+assert.ok(ranking.filas.every((f) => !f.nombre.includes('bot')));
+const perfil = await api('GET', '/progreso/perfil', { token: ganador.token });
+assert.equal(perfil.partidas, 1);
+assert.equal(perfil.victorias, 1);
+assert.equal(perfil.efectividad, 100);
+assert.ok(perfil.carta_suerte?.nombre && perfil.historial[0].gano);
+const perfilAjeno = await api('GET', `/progreso/perfil/${rosa.usuario.id}`, { token: tono.token });
+assert.equal(perfilAjeno.correo, undefined);
+paso(`ranking semanal y perfil (carta de la suerte: ${perfil.carta_suerte.nombre})`);
+
+// --- skins: tipos nuevos, temporada y exclusivas ---
+const avatares = await api('GET', '/skins/catalogo?tipo=avatar', { token: rosa.token });
+const exclusiva = avatares.find((s) => s.exclusiva);
+assert.ok(exclusiva && !exclusiva.disponible);
+await api('POST', `/skins/${exclusiva.id}/canjear`, { token: rosa.token, status: 422 });
+const fichasCat = await api('GET', '/skins/catalogo?tipo=ficha', { token: rosa.token });
+const deTemporada = fichasCat.filter((s) => s.temporada_inicio);
+const fuera = deTemporada.find((s) => !s.disponible);
+if (fuera) await api('POST', `/skins/${fuera.id}/canjear`, { token: rosa.token, status: 422 });
+const coleccion = await api('GET', '/skins/coleccion', { token: rosa.token });
+assert.deepEqual(coleccion.map((c) => c.tipo).sort(), ['avatar', 'carta', 'ficha', 'fondo']);
+paso(`avatares y fondos; exclusiva y fuera de temporada no se venden (${deTemporada.filter((s) => s.disponible).length} de temporada a la venta hoy)`);
+
+// --- salas públicas ---
+const publica = await api('POST', '/salas', { token: rosa.token, body: { nombre: `Pública ${sufijo}` } });
+const publicas = await api('GET', '/salas/publicas', { token: tono.token });
+const vista = publicas.find((s) => s.id === publica.id);
+assert.ok(vista && vista.anfitrion === 'Rosa' && vista.jugadores === 1 && !vista.soy_miembro);
+paso('salas públicas con anfitrión y ocupación');
+
+// --- chat rápido ---
+const frases = [];
+socket.on('sala:frase', (d) => frases.push(d));
+socket.emit('sala:frase', { salaId: sala.id, clave: 'casi' });
+socket.emit('sala:frase', { salaId: sala.id, clave: 'texto libre malicioso' });
+await esperar(400);
+assert.equal(frases.length, 1);
+assert.equal(frases[0].clave, 'casi');
+paso('chat rápido: solo frases fijas');
+
+// --- bots ---
+const bot1 = await api('POST', `/salas/${sala.id}/bots`, { token: rosa.token });
+await api('POST', `/salas/${sala.id}/bots`, { token: rosa.token });
+await api('POST', `/salas/${sala.id}/bots`, { token: tono.token, status: 403 });
+const conBots = await api('GET', `/salas/${sala.id}/jugadores`, { token: rosa.token });
+assert.equal(conBots.filter((j) => j.bot).length, 2);
+assert.ok(conBots.find((j) => j.bot).avatar);
+await api('POST', '/auth/login', { body: { correo: 'bot1@bots.loteria', password: '!' }, status: 401 });
+const p3 = await api('POST', '/partidas', { token: rosa.token, body: { sala_id: sala.id } });
+await api('POST', `/partidas/${p3.id}/tablas`, { token: tono.token, body: { tabla_id: tablas[5].id } });
+const est3 = await api('GET', `/partidas/${p3.id}/estado`, { token: rosa.token });
+const tablasDeBots = est3.tablasOcupadas.filter((t) => t.bot);
+assert.ok(tablasDeBots.length >= 2, 'cada bot escoge al menos una tabla');
+await api('POST', `/partidas/${p3.id}/iniciar`, { token: rosa.token });
+await api('DELETE', `/salas/${sala.id}/bots/${bot1.id}`, { token: rosa.token, status: 422 });
+const fin3 = await cantarHastaQueTermine(p3.id, rosa);
+assert.equal(fin3.partida.estado, 'terminada');
+assert.ok(fin3.ganadores.length >= 1);
+await api('DELETE', `/salas/${sala.id}/bots/${bot1.id}`, { token: rosa.token, status: 204 });
+paso(`bots: juegan ${tablasDeBots.length} tablas y el tablero los revisa igual; ganó ${fin3.ganadores.map((g) => g.nombre).join(', ')}`);
+
 socket.close();
 console.log('Todo bien ✔');

@@ -20,6 +20,17 @@ export class PartidaTablaRepository extends BaseRepository<PartidaTabla> {
     return (await this.ejecutar('SELECT 1 FROM partida_tablas WHERE partida_id = $1 AND tabla_id = $2', [partidaId, tablaId])) > 0;
   }
 
+  /** Tablas oficiales que nadie ha tomado en la partida, al azar. */
+  async tablasLibres(partidaId: string, limite: number) {
+    const r = await this.filas<{ id: string }>(
+      `SELECT t.id FROM tablas t WHERE t.oficial
+         AND NOT EXISTS (SELECT 1 FROM partida_tablas pt WHERE pt.partida_id = $1 AND pt.tabla_id = t.id)
+       ORDER BY random() LIMIT $2`,
+      [partidaId, limite],
+    );
+    return r.map((x) => x.id);
+  }
+
   /** La tabla elegida junto con el estado y la sala de su partida. */
   conPartida(id: string) {
     return this.fila<PartidaTabla & { estado: EstadoPartida; sala_id: string }>(
@@ -54,9 +65,11 @@ export class PartidaTablaRepository extends BaseRepository<PartidaTabla> {
   /** Quién tiene cada tabla, con sus skins para dibujarlo. */
   ocupadas(partidaId: string) {
     return this.filas(
-      `SELECT pt.tabla_id, u.id AS usuario_id, u.nombre, sf.clave AS skin_ficha, sc.clave AS skin_carta
+      `SELECT pt.tabla_id, u.id AS usuario_id, u.nombre, sf.clave AS skin_ficha, sc.clave AS skin_carta,
+              sa.clave AS avatar, u.rol = 'bot' AS bot
        FROM partida_tablas pt JOIN usuarios u ON u.id = pt.usuario_id
        LEFT JOIN skins sf ON sf.id = u.skin_ficha_id LEFT JOIN skins sc ON sc.id = u.skin_carta_id
+       LEFT JOIN skins sa ON sa.id = u.skin_avatar_id
        WHERE pt.partida_id = $1`,
       [partidaId],
     );

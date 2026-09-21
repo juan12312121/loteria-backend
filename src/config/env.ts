@@ -14,12 +14,25 @@ const esquema = z.object({
     .transform((v) => v === 'true'),
   JWT_SECRET: z.string().min(16),
   JWT_EXPIRA: z.string().default('7d'),
-  /** '*' o lista separada por comas: https://loteria.vercel.app,http://localhost:5173 */
+  /**
+   * '*' o lista separada por comas. Una entrada con * es un comodín para un
+   * segmento del dominio: https://web-*-mi-equipo.vercel.app acepta las URLs
+   * de rama y de cada deploy de Vercel de ese proyecto.
+   */
   CORS_ORIGEN: z
     .string()
     .default('*')
-    .transform((v) => (v.trim() === '*' ? '*' : v.split(',').map((o) => o.trim()).filter(Boolean))),
+    .transform((v) => (v.trim() === '*' ? '*' : v.split(',').map((o) => o.trim()).filter(Boolean).map(aOrigen))),
+  /** Render la pone sola: URL pública del servicio. Si existe, el servidor se hace ping para no dormirse. */
+  RENDER_EXTERNAL_URL: z.string().url().optional(),
 });
+
+/** 'https://web-*-equipo.vercel.app' → /^https:\/\/web-[a-z0-9-]+-equipo\.vercel\.app$/ */
+function aOrigen(patron: string): string | RegExp {
+  if (!patron.includes('*')) return patron;
+  const escapado = patron.replace(/[.+?^${}()|[\]\\/]/g, '\\$&').replace(/\*/g, '[a-z0-9-]+');
+  return new RegExp(`^${escapado}$`, 'i');
+}
 
 const resultado = esquema.safeParse(process.env);
 if (!resultado.success) {

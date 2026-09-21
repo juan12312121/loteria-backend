@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { BaseModel } from '../../core/model/BaseModel';
 
-export type Rol = 'jugador' | 'admin';
-export type TipoSkin = 'ficha' | 'carta';
+export type Rol = 'jugador' | 'admin' | 'bot';
+export const TIPOS_SKIN = ['ficha', 'carta', 'avatar', 'fondo'] as const;
+export type TipoSkin = (typeof TIPOS_SKIN)[number];
 
 export interface Usuario {
   id: string;
@@ -14,6 +15,11 @@ export interface Usuario {
   racha: number;
   skin_ficha_id: string | null;
   skin_carta_id: string | null;
+  skin_avatar_id: string | null;
+  skin_fondo_id: string | null;
+  dias_seguidos: number;
+  ultimo_diario: string | null;
+  mejor_racha: number;
   creado_en: string;
   actualizado_en: string;
 }
@@ -22,7 +28,8 @@ export class UsuarioModel extends BaseModel {
   tabla = 'usuarios';
   columnas = [
     'id', 'nombre', 'correo', 'password_hash', 'rol', 'fichas', 'puntos', 'racha',
-    'skin_ficha_id', 'skin_carta_id', 'creado_en', 'actualizado_en',
+    'skin_ficha_id', 'skin_carta_id', 'skin_avatar_id', 'skin_fondo_id',
+    'dias_seguidos', 'ultimo_diario', 'mejor_racha', 'creado_en', 'actualizado_en',
   ] as const;
   ocultas = ['password_hash'];
   filtrables = ['rol', 'correo'];
@@ -43,4 +50,4 @@ export class UsuarioModel extends BaseModel {
 export const usuarioModel = new UsuarioModel();
 
 /** Columna de usuarios donde se guarda la skin equipada de cada tipo. */
-export const columnaSkin = (tipo: TipoSkin) => (tipo === 'ficha' ? 'skin_ficha_id' : 'skin_carta_id');
+export const columnaSkin = (tipo: TipoSkin) => `skin_${tipo}_id` as const;

@@ -1,5 +1,8 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient, types } from 'pg';
 import { env } from '../config/env';
+
+// Las columnas date llegan como 'YYYY-MM-DD' (sin convertirlas a Date en la zona del servidor)
+types.setTypeParser(1082, (v) => v);
 
 export const pool = new Pool({
   host: env.DB_HOST,

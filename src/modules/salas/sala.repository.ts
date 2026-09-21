@@ -33,8 +33,10 @@ export class SalaRepository extends BaseRepository<Sala> {
 
   jugadores(salaId: string) {
     return this.filas<JugadorSala>(
-      `SELECT u.id, u.nombre, sj.rol, sj.conectado, sj.unido_en
+      `SELECT u.id, u.nombre, sj.rol, (sj.conectado OR u.rol = 'bot') AS conectado, sj.unido_en,
+              u.rol = 'bot' AS bot, sa.clave AS avatar
        FROM sala_jugadores sj JOIN usuarios u ON u.id = sj.usuario_id
+       LEFT JOIN skins sa ON sa.id = u.skin_avatar_id
        WHERE sj.sala_id = $1 ORDER BY sj.unido_en`,
       [salaId],
     );
@@ -47,6 +49,27 @@ export class SalaRepository extends BaseRepository<Sala> {
               (SELECT count(*)::int FROM sala_jugadores x WHERE x.sala_id = s.id) AS jugadores
        FROM salas s JOIN sala_jugadores sj ON sj.sala_id = s.id
        WHERE sj.usuario_id = $1 AND s.estado <> 'cerrada' ORDER BY s.creado_en DESC`,
+      [usuarioId],
+    );
+  }
+
+  async botsDe(salaId: string) {
+    const r = await this.filas<{ id: string }>(
+      `SELECT u.id FROM sala_jugadores sj JOIN usuarios u ON u.id = sj.usuario_id WHERE sj.sala_id = $1 AND u.rol = 'bot'`,
+      [salaId],
+    );
+    return r.map((x) => x.id);
+  }
+
+  /** Salas públicas recientes para unirse sin código, con anfitrión y ocupación. */
+  publicas(usuarioId: string) {
+    return this.filas<Sala & { anfitrion: string; jugadores: number; soy_miembro: boolean }>(
+      `SELECT ${this.model.select('s')}, u.nombre AS anfitrion,
+              (SELECT count(*)::int FROM sala_jugadores x WHERE x.sala_id = s.id) AS jugadores,
+              exists(SELECT 1 FROM sala_jugadores x WHERE x.sala_id = s.id AND x.usuario_id = $1) AS soy_miembro
+       FROM salas s JOIN usuarios u ON u.id = s.anfitrion_id
+       WHERE NOT s.privada AND s.estado <> 'cerrada' AND s.creado_en > now() - interval '3 days'
+       ORDER BY (s.estado = 'abierta') DESC, s.creado_en DESC LIMIT 30`,
       [usuarioId],
     );
   }

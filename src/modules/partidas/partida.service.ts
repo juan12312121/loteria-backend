@@ -13,6 +13,7 @@ import { PartidaRepository } from './partida.repository';
 import { PartidaTablaRepository } from './partida-tabla.repository';
 import { LogroRepository } from './logro.repository';
 import { CantorService } from './cantor.service';
+import type { BotsService } from '../salas/bots.service';
 
 /** Ciclo de vida de una ronda: crear, iniciar, pausar, reanudar, cancelar y consultar. */
 export class PartidaService extends BaseService<Partida> {
@@ -26,6 +27,7 @@ export class PartidaService extends BaseService<Partida> {
     private readonly salas: SalaRepository,
     private readonly cantor: CantorService,
     private readonly fichas: FichasService,
+    private readonly bots: BotsService,
   ) {
     super(partidas);
   }
@@ -47,6 +49,7 @@ export class PartidaService extends BaseService<Partida> {
 
   protected async despuesDeCrear(partida: Partida) {
     bus.emitir(partida.sala_id, 'partida:estado', partida);
+    await this.bots.alCrearPartida(partida.id, partida.sala_id);
   }
 
   protected async antesDeActualizar(id: string, datos: Record<string, unknown>, actor?: Actor) {

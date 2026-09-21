@@ -4,6 +4,10 @@ import { verificarToken } from '../core/middleware/auth';
 import { env } from '../config/env';
 import { SalaRepository } from '../modules/salas/sala.repository';
 import { bus } from './bus';
+import { esFrase } from './Progreso';
+
+/** Una frase del chat rápido cada tanto por jugador, para que nadie haga spam. */
+const ESPERA_FRASE_MS = 1500;
 
 const cuarto = (salaId: string) => `sala:${salaId}`;
 
@@ -32,6 +36,16 @@ export function iniciarRealtime(http: HttpServer, salas: SalaRepository) {
       await socket.join(cuarto(salaId));
       await salas.marcarConectado(salaId, usuarioId, true);
       io.to(cuarto(salaId)).emit('jugador:conectado', { usuarioId });
+    });
+
+    /** Chat rápido: solo frases fijas (se manda la clave), a quien esté en el cuarto de la sala. */
+    socket.on('sala:frase', (datos: { salaId?: string; clave?: string }) => {
+      const salaId = String(datos?.salaId ?? '');
+      if (!socket.rooms.has(cuarto(salaId)) || !esFrase(datos?.clave)) return;
+      const ahora = Date.now();
+      if (ahora - (socket.data.ultimaFrase ?? 0) < ESPERA_FRASE_MS) return;
+      socket.data.ultimaFrase = ahora;
+      io.to(cuarto(salaId)).emit('sala:frase', { usuarioId, clave: datos.clave, en: ahora });
     });
 
     socket.on('sala:salir', async (salaId: string) => {
