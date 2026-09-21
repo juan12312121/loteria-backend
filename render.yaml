@@ -13,7 +13,7 @@ services:
       - key: NODE_VERSION
         value: 22
       - key: DB_HOST
-        sync: false # aws-0-ca-central-1.pooler.supabase.com
+        sync: false # aws-0-<region>.pooler.supabase.com
       - key: DB_PORT
         value: 5432
       - key: DB_USER
