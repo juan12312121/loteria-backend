@@ -28,5 +28,6 @@ services:
         generateValue: true
       - key: JWT_EXPIRA
         value: 7d
+      # Solo la web de Vercel (y el desarrollo local) pueden usar el API
       - key: CORS_ORIGEN
-        sync: false # https://tu-proyecto.vercel.app
+        value: https://web-phi-three-89.vercel.app,http://localhost:5173
