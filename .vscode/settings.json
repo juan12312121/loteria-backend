@@ -1,0 +1,5 @@
+{
+    "powerquery.client.additionalSymbolsDirectories": [
+        "c:/Users/User/OneDrive/Documents/WindowsPowerShell/loteria-backend/.vscode/excel-pq-symbols"
+    ]
+}

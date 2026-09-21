@@ -1,0 +1,32 @@
+# Blueprint de Render: https://render.com/docs/blueprint-spec
+# En Render: New → Blueprint → elige el repo. Las variables con sync:false las llenas tú en el panel.
+services:
+  - type: web
+    name: loteria-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build && npm run db:migrate:prod && npm prune --omit=dev
+    startCommand: npm start
+    healthCheckPath: /salud
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DB_HOST
+        sync: false # aws-0-ca-central-1.pooler.supabase.com
+      - key: DB_PORT
+        value: 5432
+      - key: DB_USER
+        sync: false # postgres.<ref-del-proyecto>
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: postgres
+      - key: DB_SSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRA
+        value: 7d
+      - key: CORS_ORIGEN
+        sync: false # https://tu-proyecto.vercel.app
