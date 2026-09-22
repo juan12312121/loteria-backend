@@ -178,7 +178,7 @@ const deTemporada = fichasCat.filter((s) => s.temporada_inicio);
 const fuera = deTemporada.find((s) => !s.disponible);
 if (fuera) await api('POST', `/skins/${fuera.id}/canjear`, { token: rosa.token, status: 422 });
 const coleccion = await api('GET', '/skins/coleccion', { token: rosa.token });
-assert.deepEqual(coleccion.map((c) => c.tipo).sort(), ['avatar', 'carta', 'ficha', 'fondo']);
+assert.deepEqual(coleccion.map((c) => c.tipo).sort(), ['avatar', 'carta', 'ficha', 'fondo', 'tema']);
 paso(`avatares y fondos; exclusiva y fuera de temporada no se venden (${deTemporada.filter((s) => s.disponible).length} de temporada a la venta hoy)`);
 
 // --- salas públicas ---
@@ -207,7 +207,10 @@ assert.equal(conBots.filter((j) => j.bot).length, 2);
 assert.ok(conBots.find((j) => j.bot).avatar);
 await api('POST', '/auth/login', { body: { correo: 'bot1@bots.loteria', password: '!' }, status: 401 });
 const p3 = await api('POST', '/partidas', { token: rosa.token, body: { sala_id: sala.id } });
-await api('POST', `/partidas/${p3.id}/tablas`, { token: tono.token, body: { tabla_id: tablas[5].id } });
+// Los bots ya escogieron al azar: Tono toma una que siga libre
+const ocupadasPorBots = new Set((await api('GET', `/partidas/${p3.id}/estado`, { token: rosa.token })).tablasOcupadas.map((t) => t.tabla_id));
+const todas = await api('GET', '/tablas?oficial=true&porPagina=50');
+await api('POST', `/partidas/${p3.id}/tablas`, { token: tono.token, body: { tabla_id: todas.find((t) => !ocupadasPorBots.has(t.id)).id } });
 const est3 = await api('GET', `/partidas/${p3.id}/estado`, { token: rosa.token });
 const tablasDeBots = est3.tablasOcupadas.filter((t) => t.bot);
 assert.ok(tablasDeBots.length >= 2, 'cada bot escoge al menos una tabla');

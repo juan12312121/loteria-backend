@@ -3,7 +3,7 @@ import { TIPOS_SKIN, TipoSkin } from '../usuarios/usuario.model';
 import { Equipo, Skin, SkinResumen } from './skin.model';
 
 /** ¿La skin s es la que el usuario u trae puesta? */
-const EQUIPADA = `coalesce(s.id IN (u.skin_ficha_id, u.skin_carta_id, u.skin_avatar_id, u.skin_fondo_id), false)`;
+const EQUIPADA = `coalesce(s.id IN (u.skin_ficha_id, u.skin_carta_id, u.skin_avatar_id, u.skin_fondo_id, u.skin_tema_id), false)`;
 
 export class SkinRepository extends BaseRepository<Skin> {
   /** Catálogo activo con marcas de "la tengo" y "equipada" para un usuario. */
@@ -52,7 +52,7 @@ export class SkinRepository extends BaseRepository<Skin> {
   async equipoDe(usuarioId: string): Promise<Equipo> {
     const filas = await this.filas<{ tipo: TipoSkin } & SkinResumen>(
       `SELECT s.tipo, s.id, s.clave, s.nombre, s.imagen_url FROM usuarios u
-       JOIN skins s ON s.id IN (u.skin_ficha_id, u.skin_carta_id, u.skin_avatar_id, u.skin_fondo_id)
+       JOIN skins s ON s.id IN (u.skin_ficha_id, u.skin_carta_id, u.skin_avatar_id, u.skin_fondo_id, u.skin_tema_id)
        WHERE u.id = $1`,
       [usuarioId],
     );

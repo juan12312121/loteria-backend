@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { BaseModel } from '../../core/model/BaseModel';
 
 export type Rol = 'jugador' | 'admin' | 'bot';
-export const TIPOS_SKIN = ['ficha', 'carta', 'avatar', 'fondo'] as const;
+export const TIPOS_SKIN = ['ficha', 'carta', 'avatar', 'fondo', 'tema'] as const;
 export type TipoSkin = (typeof TIPOS_SKIN)[number];
 
 export interface Usuario {
@@ -17,6 +17,7 @@ export interface Usuario {
   skin_carta_id: string | null;
   skin_avatar_id: string | null;
   skin_fondo_id: string | null;
+  skin_tema_id: string | null;
   dias_seguidos: number;
   ultimo_diario: string | null;
   mejor_racha: number;
@@ -28,7 +29,7 @@ export class UsuarioModel extends BaseModel {
   tabla = 'usuarios';
   columnas = [
     'id', 'nombre', 'correo', 'password_hash', 'rol', 'fichas', 'puntos', 'racha',
-    'skin_ficha_id', 'skin_carta_id', 'skin_avatar_id', 'skin_fondo_id',
+    'skin_ficha_id', 'skin_carta_id', 'skin_avatar_id', 'skin_fondo_id', 'skin_tema_id',
     'dias_seguidos', 'ultimo_diario', 'mejor_racha', 'creado_en', 'actualizado_en',
   ] as const;
   ocultas = ['password_hash'];

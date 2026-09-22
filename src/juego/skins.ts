@@ -1,4 +1,4 @@
-export type TipoSkinSemilla = 'ficha' | 'carta' | 'avatar' | 'fondo';
+export type TipoSkinSemilla = 'ficha' | 'carta' | 'avatar' | 'fondo' | 'tema';
 
 export interface SkinSemilla {
   tipo: TipoSkinSemilla;
@@ -80,5 +80,14 @@ export const SKINS: SkinSemilla[] = [
   { tipo: 'fondo', clave: 'cantina', nombre: 'Cantina', descripcion: 'Madera y azulejo', precio_puntos: 250, rareza: 'rara' },
   { tipo: 'fondo', clave: 'panteon', nombre: 'Panteón', descripcion: 'Velas y noche morada', precio_puntos: 300, rareza: 'epica' },
   { tipo: 'fondo', clave: 'noche_feria', nombre: 'Noche de feria', descripcion: 'Estrellas y rueda de la fortuna', precio_puntos: 400, rareza: 'epica' },
+  // ---------- temas de color de la app ----------
+  { tipo: 'tema', clave: 'tema_clasico', nombre: 'Clásico', descripcion: 'Crema y rosa mexicano de la baraja', precio_puntos: 0, rareza: 'comun' },
+  { tipo: 'tema', clave: 'tema_noche', nombre: 'Noche de feria', descripcion: 'Morado de noche con luces de colores', precio_puntos: 0, rareza: 'comun' },
+  { tipo: 'tema', clave: 'tema_talavera', nombre: 'Talavera', descripcion: 'Blanco y azul de Puebla', precio_puntos: 200, rareza: 'rara' },
+  { tipo: 'tema', clave: 'tema_barro', nombre: 'Barro', descripcion: 'Terracota y turquesa de Oaxaca', precio_puntos: 200, rareza: 'rara' },
+  { tipo: 'tema', clave: 'tema_mercado', nombre: 'Mercado', descripcion: 'Rosa mexicano y verde de puesto de fruta', precio_puntos: 250, rareza: 'rara' },
+  { tipo: 'tema', clave: 'tema_jade', nombre: 'Jade maya', descripcion: 'Verde jade, piedra y oro', precio_puntos: 300, rareza: 'epica' },
+  { tipo: 'tema', clave: 'tema_lucha', nombre: 'Lucha libre', descripcion: 'Arena oscura con rojo y azul eléctrico', precio_puntos: 400, rareza: 'epica' },
+  { tipo: 'tema', clave: 'tema_cempasuchil', nombre: 'Cempasúchil', descripcion: 'Naranja de altar: solo en Día de Muertos', precio_puntos: 250, rareza: 'epica', temporada: MUERTOS },
   { tipo: 'fondo', clave: 'altar', nombre: 'Altar de muertos', descripcion: 'Solo en temporada de Día de Muertos', precio_puntos: 250, rareza: 'epica', temporada: MUERTOS },
 ];
