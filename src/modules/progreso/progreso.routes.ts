@@ -8,6 +8,9 @@ export function progresoRoutes(ctrl: ProgresoController) {
   accion(r, 'get', '/', auth(), ctrl.resumen);
   accion(r, 'post', '/diario', auth(), ctrl.reclamarDiario);
   accion(r, 'post', '/misiones/:clave/cobrar', auth(), ctrl.cobrarMision);
+  accion(r, 'post', '/nivel', auth(), ctrl.cobrarNivel);
+  accion(r, 'post', '/pase/:nivel', auth(), ctrl.cobrarPase);
+  accion(r, 'post', '/banco', auth(), ctrl.cobrarBanco);
   accion(r, 'get', '/ranking', auth(), ctrl.ranking);
   accion(r, 'get', '/perfil', auth(), ctrl.miPerfil);
   accion(r, 'get', '/perfil/:id', auth(), ctrl.perfil);

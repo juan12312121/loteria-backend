@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { verificarToken } from '../core/middleware/auth';
 import { env } from '../config/env';
 import { SalaRepository } from '../modules/salas/sala.repository';
+import { AmigoRepository } from '../modules/amigos/amigo.repository';
 import { bus } from './bus';
 import { esFrase } from './Progreso';
 
@@ -16,7 +17,7 @@ const cuarto = (salaId: string) => `sala:${salaId}`;
  * y emite "sala:unirse" con el id de la sala. Varias salas juegan a la vez sin
  * estorbarse: cada evento del bus va solo al cuarto de su sala.
  */
-export function iniciarRealtime(http: HttpServer, salas: SalaRepository) {
+export function iniciarRealtime(http: HttpServer, salas: SalaRepository, amigos: AmigoRepository) {
   const io = new Server(http, { cors: { origin: env.CORS_ORIGEN } });
 
   io.use((socket, next) => {
@@ -30,6 +31,8 @@ export function iniciarRealtime(http: HttpServer, salas: SalaRepository) {
 
   io.on('connection', (socket: Socket) => {
     const usuarioId: string = socket.data.actor.id;
+    // Presencia: para que los amigos vean quién está en línea
+    void amigos.presencia(usuarioId, true);
 
     socket.on('sala:unirse', async (salaId: string) => {
       if (!(await salas.esMiembro(salaId, usuarioId))) return socket.emit('error', { mensaje: 'No estás en esa sala' });
@@ -54,7 +57,10 @@ export function iniciarRealtime(http: HttpServer, salas: SalaRepository) {
       io.to(cuarto(salaId)).emit('jugador:desconectado', { usuarioId });
     });
 
-    socket.on('disconnect', () => salas.desconectarDeTodas(usuarioId));
+    socket.on('disconnect', () => {
+      void amigos.presencia(usuarioId, false);
+      void salas.desconectarDeTodas(usuarioId);
+    });
   });
 
   bus.on('sala', ({ salaId, evento, datos }) => io.to(cuarto(salaId)).emit(evento, datos));

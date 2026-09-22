@@ -62,6 +62,25 @@ export class UsuarioRepository extends BaseRepository<Usuario> {
     return r?.dias_seguidos ?? null;
   }
 
+  /** Marca los niveles como cobrados; null si otro cobro se adelantó. */
+  async marcarNivelCobrado(usuarioId: string, nivel: number): Promise<number | null> {
+    const r = await this.fila<{ nivel_cobrado: number }>(
+      'UPDATE usuarios SET nivel_cobrado = $2 WHERE id = $1 AND nivel_cobrado < $2 RETURNING nivel_cobrado',
+      [usuarioId, nivel],
+    );
+    return r?.nivel_cobrado ?? null;
+  }
+
+/** Aparta el préstamo del banco de hoy (solo marca la fecha); false si no aplica. */
+  async apartarBanco(usuarioId: string, hoy: string, minimo: number) {
+    const r = await this.ejecutar(
+      `UPDATE usuarios SET ultimo_banco = $2::date, actualizado_en = now()
+       WHERE id = $1 AND fichas < $3 AND (ultimo_banco IS NULL OR ultimo_banco < $2::date)`,
+      [usuarioId, hoy, minimo],
+    );
+    return r > 0;
+  }
+
   /** Bots de la reserva que todavía no están en la sala. */
   botsLibres(salaId: string) {
     return this.filas<{ id: string; nombre: string }>(

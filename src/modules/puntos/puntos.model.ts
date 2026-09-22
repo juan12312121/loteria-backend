@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { BaseModel } from '../../core/model/BaseModel';
 
 export type TipoPuntos =
-  | 'participacion' | 'victoria' | 'logro' | 'bono' | 'penalizacion' | 'canje' | 'ajuste' | 'diario' | 'mision' | 'ranking';
+  | 'participacion' | 'victoria' | 'logro' | 'bono' | 'penalizacion' | 'canje' | 'ajuste'
+  | 'diario' | 'mision' | 'ranking' | 'nivel' | 'pase';
 
 export interface PuntosMovimiento {
   id: string;

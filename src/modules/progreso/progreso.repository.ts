@@ -14,6 +14,8 @@ export interface FilaRanking {
   nombre: string;
   avatar: string | null;
   puntos: number;
+  /** Puntos ganados en toda su vida: de ahí sale el nivel y la insignia */
+  xp: number;
 }
 
 /**
@@ -67,7 +69,8 @@ export class ProgresoRepository {
   /** Puntos ganados JUGANDO en la semana (no cuentan bonos, misiones ni compras). */
   async rankingSemana(desde: string, hasta: string, limite: number): Promise<FilaRanking[]> {
     const { rows } = await this.db.query(
-      `SELECT u.id AS usuario_id, u.nombre, sa.clave AS avatar, sum(pm.monto)::int AS puntos
+      `SELECT u.id AS usuario_id, u.nombre, sa.clave AS avatar, sum(pm.monto)::int AS puntos,
+              (SELECT coalesce(sum(x.monto), 0)::int FROM puntos_movimientos x WHERE x.usuario_id = u.id AND x.monto > 0) AS xp
        FROM puntos_movimientos pm JOIN usuarios u ON u.id = pm.usuario_id
        LEFT JOIN skins sa ON sa.id = u.skin_avatar_id
        WHERE u.rol <> 'bot' AND pm.tipo IN ('participacion','victoria','logro') AND ${enRango('pm.creado_en', 1, 2)}
@@ -91,6 +94,43 @@ export class ProgresoRepository {
   async ultimaSemanaPremiada() {
     const { rows } = await this.db.query('SELECT semana::text, ganadores FROM premios_semanales ORDER BY semana DESC LIMIT 1');
     return (rows[0] as { semana: string; ganadores: unknown[] } | undefined) ?? null;
+  }
+
+  /** Puntos ganados JUGANDO en un rango (sirve para el pase de temporada). */
+  async puntosJugando(usuarioId: string, desde: string, hasta: string) {
+    const { rows } = await this.db.query<{ puntos: number }>(
+      `SELECT coalesce(sum(monto), 0)::int AS puntos FROM puntos_movimientos pm
+       WHERE pm.usuario_id = $1 AND pm.tipo IN ('participacion','victoria','logro') AND ${enRango('pm.creado_en')}`,
+      [usuarioId, desde, hasta],
+    );
+    return rows[0].puntos;
+  }
+
+  /** Experiencia de toda la vida: todo lo que ha ganado (no baja al canjear). */
+  async experiencia(usuarioId: string) {
+    const { rows } = await this.db.query<{ xp: number }>(
+      'SELECT coalesce(sum(monto), 0)::int AS xp FROM puntos_movimientos WHERE usuario_id = $1 AND monto > 0',
+      [usuarioId],
+    );
+    return rows[0].xp;
+  }
+
+  /** Niveles del pase ya cobrados este mes. */
+  async pasesCobrados(usuarioId: string, temporada: string) {
+    const { rows } = await this.db.query<{ nivel: number }>(
+      'SELECT nivel FROM pase_cobrado WHERE usuario_id = $1 AND temporada = $2',
+      [usuarioId, temporada],
+    );
+    return new Set(rows.map((r) => r.nivel));
+  }
+
+  /** Marca un nivel del pase como cobrado; false si ya lo estaba. */
+  async cobrarPase(usuarioId: string, temporada: string, nivel: number) {
+    const r = await this.db.query(
+      'INSERT INTO pase_cobrado (usuario_id, temporada, nivel) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+      [usuarioId, temporada, nivel],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   // ---------- perfil ----------

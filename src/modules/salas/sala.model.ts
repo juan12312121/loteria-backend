@@ -16,6 +16,8 @@ export interface Sala {
   /** Fijo por las reglas del juego (REGLAS_SALA.costoTabla) */
   costo_tabla: number;
   privada: boolean;
+  /** Si tiene contraseña, hay que escribirla para entrar (aparte del código) */
+  password_hash: string | null;
   estado: EstadoSala;
   creado_en: string;
 }
@@ -34,12 +36,14 @@ export class SalaModel extends BaseModel {
   tabla = 'salas';
   columnas = [
     'id', 'codigo', 'nombre', 'anfitrion_id', 'figura_id', 'modo_cantor', 'velocidad_ms',
-    'max_jugadores', 'costo_tabla', 'privada', 'estado', 'creado_en',
+    'max_jugadores', 'costo_tabla', 'privada', 'password_hash', 'estado', 'creado_en',
   ] as const;
   filtrables = ['estado', 'privada', 'anfitrion_id', 'codigo'];
   ordenables = ['creado_en', 'nombre'];
+  ocultas = ['password_hash'];
   crear = z.object({
     nombre: z.string().trim().min(1).max(60),
+    password: z.string().trim().min(3).max(40).optional(),
     figura_id: z.number().int().positive().optional(),
     modo_cantor: z.enum(['automatico', 'manual']).default('automatico'),
     velocidad_ms: z.number().int().min(1000).max(60000).default(5000),

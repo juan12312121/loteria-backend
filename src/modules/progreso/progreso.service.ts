@@ -4,10 +4,18 @@ import {
   diaLocal, lunesDe, MISIONES, Mision, periodoDe, PREMIOS_RANKING, puntosDiarios, rangoDe,
   RECOMPENSA_DIARIA, siguienteRacha, sumarDias,
 } from '../../juego/Progreso';
+import { BANCO, estadoNivel, nivelPase, NIVELES_PASE, PREMIOS_PASE, PUNTOS_POR_NIVEL_PASE, temporadaDe } from '../../juego/Niveles';
+import { FichasService } from '../movimientos/fichas.service';
 import { UsuarioRepository } from '../usuarios/usuario.repository';
 import { PuntosService } from '../puntos/puntos.service';
 import { SkinService } from '../skins/skin.service';
 import { Metricas, ProgresoRepository } from './progreso.repository';
+
+/** Último día del mes de una temporada 'YYYY-MM'. */
+function finDeMes(temporada: string) {
+  const [anio, mes] = temporada.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes, 0)).toISOString().slice(0, 10);
+}
 
 export interface EstadoMision extends Mision {
   periodo_id: string;
@@ -26,6 +34,7 @@ export class ProgresoService {
     private readonly usuarios: UsuarioRepository,
     private readonly puntos: PuntosService,
     private readonly skins: SkinService,
+    private readonly fichas: FichasService,
   ) {}
 
   // ---------- recompensa diaria ----------
@@ -89,10 +98,93 @@ export class ProgresoService {
     });
   }
 
+  // ---------- niveles, pase y banco ----------
+
+  /** Nivel e insignia del jugador (la experiencia son los puntos que ha ganado en su vida). */
+  async nivel(usuarioId: string) {
+    const [xp, usuario] = await Promise.all([this.progreso.experiencia(usuarioId), this.usuarios.obtener(usuarioId)]);
+    return estadoNivel(xp, usuario?.nivel_cobrado ?? 0);
+  }
+
+  /** Cobra de un jalón los premios de los niveles que subió. */
+  cobrarNivel(usuarioId: string) {
+    return transaccion(async (db) => {
+      const estado = await this.nivel(usuarioId);
+      if (estado.porCobrar === 0) throw new Unprocessable('No tienes niveles nuevos por cobrar');
+      if ((await this.usuarios.con(db).marcarNivelCobrado(usuarioId, estado.nivel)) === null)
+        throw new Conflict('Ya cobraste esos niveles');
+      const saldo = await this.puntos.mover(db, usuarioId, estado.premio, 'nivel', null, `Nivel ${estado.nivel}: ${estado.insignia.nombre}`);
+      return { nivel: estado.nivel, insignia: estado.insignia, puntos: estado.premio, saldo };
+    });
+  }
+
+  /** Pase del mes: gratis, se avanza con los puntos ganados jugando. */
+  async pase(usuarioId: string) {
+    const hoy = diaLocal();
+    const temporada = temporadaDe(hoy);
+    const [puntos, cobrados] = await Promise.all([
+      this.progreso.puntosJugando(usuarioId, `${temporada}-01`, sumarDias(finDeMes(temporada), 1)),
+      this.progreso.pasesCobrados(usuarioId, temporada),
+    ]);
+    const nivel = nivelPase(puntos);
+    return {
+      temporada,
+      termina: finDeMes(temporada),
+      puntos,
+      nivel,
+      niveles: NIVELES_PASE,
+      por_nivel: PUNTOS_POR_NIVEL_PASE,
+      premios: PREMIOS_PASE.map((p) => ({ ...p, alcanzado: p.nivel <= nivel, cobrado: cobrados.has(p.nivel) })),
+      por_cobrar: PREMIOS_PASE.filter((p) => p.nivel <= nivel && !cobrados.has(p.nivel)).length,
+    };
+  }
+
+  cobrarPase(usuarioId: string, nivel: number) {
+    return transaccion(async (db) => {
+      const pase = await this.pase(usuarioId);
+      const premio = pase.premios.find((p) => p.nivel === nivel);
+      if (!premio) throw new NotFound('Ese nivel del pase no existe');
+      if (!premio.alcanzado) throw new Unprocessable(`Te faltan puntos: el nivel ${nivel} pide ${nivel * PUNTOS_POR_NIVEL_PASE}`);
+      if (!(await this.progreso.con(db).cobrarPase(usuarioId, pase.temporada, nivel))) throw new Conflict('Ya cobraste ese nivel');
+      if (premio.puntos) await this.puntos.mover(db, usuarioId, premio.puntos, 'pase', null, `Pase ${pase.temporada}, nivel ${nivel}`);
+      if (premio.fichas) await this.fichas.mover(db, usuarioId, premio.fichas, 'bono', null);
+      return { nivel, puntos: premio.puntos, fichas: premio.fichas, insignia: !!premio.insignia };
+    });
+  }
+
+  /** Banco de fichas: un puñito gratis al día si te quedaste corto. */
+  async banco(usuarioId: string) {
+    const usuario = await this.usuarios.obtener(usuarioId);
+    if (!usuario) throw new NotFound();
+    const hoy = diaLocal();
+    return {
+      disponible: usuario.fichas < BANCO.siTienesMenosDe && usuario.ultimo_banco !== hoy,
+      fichas: usuario.fichas,
+      regala: BANCO.regala,
+      minimo: BANCO.siTienesMenosDe,
+    };
+  }
+
+  cobrarBanco(usuarioId: string) {
+    return transaccion(async (db) => {
+      if (!(await this.usuarios.con(db).apartarBanco(usuarioId, diaLocal(), BANCO.siTienesMenosDe)))
+        throw new Unprocessable(`El banco presta una vez al día y solo si te quedan menos de ${BANCO.siTienesMenosDe} fichas`);
+      const fichas = await this.fichas.mover(db, usuarioId, BANCO.regala, 'bono', null);
+      return { fichas, regalo: BANCO.regala };
+    });
+  }
+
   /** Todo lo del lobby en una sola llamada. */
   async resumen(usuarioId: string) {
-    const [diario, misiones] = await Promise.all([this.diario(usuarioId), this.misiones(usuarioId)]);
-    return { diario, misiones, por_cobrar: misiones.filter((m) => m.completada && !m.cobrada).length };
+    const [diario, misiones, nivel, pase, banco] = await Promise.all([
+      this.diario(usuarioId),
+      this.misiones(usuarioId),
+      this.nivel(usuarioId),
+      this.pase(usuarioId),
+      this.banco(usuarioId),
+    ]);
+    const porCobrar = misiones.filter((m) => m.completada && !m.cobrada).length + pase.por_cobrar + (nivel.porCobrar > 0 ? 1 : 0);
+    return { diario, misiones, nivel, pase, banco, por_cobrar: porCobrar };
   }
 
   // ---------- ranking semanal ----------
@@ -142,6 +234,7 @@ export class ProgresoService {
     ]);
     if (!stats) throw new NotFound('Jugador no encontrado');
     const efectividad = metricas.partidas ? Math.round((metricas.victorias / metricas.partidas) * 100) : 0;
-    return { ...stats, ...metricas, efectividad, carta_suerte: carta, figura_favorita: figura, historial, coleccion };
+    const nivel = await this.nivel(usuarioId);
+    return { ...stats, ...metricas, efectividad, nivel, carta_suerte: carta, figura_favorita: figura, historial, coleccion };
   }
 }

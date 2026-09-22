@@ -14,6 +14,7 @@ import { PartidaTablaRepository } from './partida-tabla.repository';
 import { LogroRepository } from './logro.repository';
 import { CantorService } from './cantor.service';
 import type { BotsService } from '../salas/bots.service';
+import type { AvisoService } from '../avisos/aviso.service';
 
 /** Ciclo de vida de una ronda: crear, iniciar, pausar, reanudar, cancelar y consultar. */
 export class PartidaService extends BaseService<Partida> {
@@ -28,6 +29,7 @@ export class PartidaService extends BaseService<Partida> {
     private readonly cantor: CantorService,
     private readonly fichas: FichasService,
     private readonly bots: BotsService,
+    private readonly avisos: AvisoService,
   ) {
     super(partidas);
   }
@@ -71,6 +73,7 @@ export class PartidaService extends BaseService<Partida> {
     const partida = await this.cambiarEstado(id, ['preparando'], 'cantando', 'iniciada_en');
     await this.salas.marcarJugando(partida.sala_id);
     this.cantor.programar(partida, sala);
+    void this.avisos.rondaIniciada(sala.id, sala.nombre, actor.id);
     return partida;
   }
 

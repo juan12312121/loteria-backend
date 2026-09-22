@@ -7,7 +7,7 @@ import { realtimeDeps, tareasDeps } from './container';
 import { programarTareas } from './juego/tareas';
 
 const servidor = http.createServer(app);
-iniciarRealtime(servidor, realtimeDeps.salaRepo);
+iniciarRealtime(servidor, realtimeDeps.salaRepo, realtimeDeps.amigoRepo);
 const detenerTareas = programarTareas(tareasDeps);
 
 servidor.listen(env.PORT, () => console.log(`Lotería API en http://localhost:${env.PORT}`));

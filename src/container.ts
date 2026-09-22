@@ -40,6 +40,13 @@ import { ProgresoRepository } from './modules/progreso/progreso.repository';
 import { ProgresoService } from './modules/progreso/progreso.service';
 import { ProgresoController } from './modules/progreso/progreso.controller';
 import { progresoRoutes } from './modules/progreso/progreso.routes';
+import { AmigoRepository } from './modules/amigos/amigo.repository';
+import { AmigoService } from './modules/amigos/amigo.service';
+import { AmigoController } from './modules/amigos/amigo.controller';
+import { amigoRoutes } from './modules/amigos/amigo.routes';
+import { AvisoRepository } from './modules/avisos/aviso.repository';
+import { AvisoService } from './modules/avisos/aviso.service';
+import { avisoRoutes } from './modules/avisos/aviso.routes';
 import { reclamoModel } from './modules/reclamos/reclamo.model';
 import { ReclamoRepository } from './modules/reclamos/reclamo.repository';
 import { reclamoRoutes } from './modules/reclamos/reclamo.routes';
@@ -73,6 +80,8 @@ const partidaRepo = new PartidaRepository(partidaModel);
 const partidaTablaRepo = new PartidaTablaRepository(partidaTablaModel);
 const logroRepo = new LogroRepository(logroModel);
 const progresoRepo = new ProgresoRepository();
+const amigoRepo = new AmigoRepository();
+const avisoRepo = new AvisoRepository();
 
 // ---------- servicios ----------
 const fichasService = new FichasService(usuarioRepo, movimientoRepo);
@@ -86,10 +95,13 @@ const cantorService = new CantorService(
 );
 const tablasPartidaService = new TablasPartidaService(partidaRepo, partidaTablaRepo, tablaRepo, salaService, fichasService);
 const botsService = new BotsService(salaRepo, salaService, usuarioRepo, partidaRepo, partidaTablaRepo, tablasPartidaService);
+const avisoService = new AvisoService(avisoRepo);
 const partidaService = new PartidaService(
   partidaRepo, partidaTablaRepo, logroRepo, reclamoRepo, figuraRepo, salaService, salaRepo, cantorService, fichasService, botsService,
+  avisoService,
 );
-const progresoService = new ProgresoService(progresoRepo, usuarioRepo, puntosService, skinService);
+const progresoService = new ProgresoService(progresoRepo, usuarioRepo, puntosService, skinService, fichasService);
+const amigoService = new AmigoService(amigoRepo, usuarioRepo);
 const authService = new AuthService(usuarioRepo, skinService);
 
 // ---------- controladores ----------
@@ -110,10 +122,15 @@ export const rutas = {
   '/puntos': puntosRoutes(new PuntosController(puntosService)),
   '/skins': skinRoutes(new SkinController(skinService)),
   '/progreso': progresoRoutes(new ProgresoController(progresoService)),
+  '/amigos': amigoRoutes(new AmigoController(amigoService)),
+  '/avisos': avisoRoutes(avisoService),
 };
 
 /** Lo que necesita la capa de tiempo real. */
-export const realtimeDeps = { salaRepo };
+export const realtimeDeps = { salaRepo, amigoRepo };
 
 /** Lo que necesitan las tareas periódicas del servidor. */
-export const tareasDeps = { premiarSemanaPasada: () => progresoService.premiarSemanaPasada() };
+export const tareasDeps = {
+  premiarSemanaPasada: () => progresoService.premiarSemanaPasada(),
+  recordarDiario: () => avisoService.recordarDiario(),
+};

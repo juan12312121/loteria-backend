@@ -6,6 +6,12 @@ export class SalaRepository extends BaseRepository<Sala> {
     return this.buscarUno({ codigo: codigo.toUpperCase() });
   }
 
+  /** El hash de la contraseña (única consulta que lo lee). */
+  async passwordDe(salaId: string) {
+    const r = await this.fila<{ password_hash: string | null }>('SELECT password_hash FROM salas WHERE id = $1', [salaId]);
+    return r?.password_hash ?? null;
+  }
+
   async esMiembro(salaId: string, usuarioId: string) {
     return (await this.ejecutar('SELECT 1 FROM sala_jugadores WHERE sala_id = $1 AND usuario_id = $2', [salaId, usuarioId])) > 0;
   }
@@ -45,7 +51,7 @@ export class SalaRepository extends BaseRepository<Sala> {
   /** Salas abiertas donde participo, con cuántos jugadores tiene cada una. */
   mias(usuarioId: string) {
     return this.filas<Sala & { mi_rol: string; jugadores: number }>(
-      `SELECT ${this.model.select('s')}, sj.rol AS mi_rol,
+      `SELECT ${this.model.select('s')}, sj.rol AS mi_rol, (s.password_hash IS NOT NULL) AS con_password,
               (SELECT count(*)::int FROM sala_jugadores x WHERE x.sala_id = s.id) AS jugadores
        FROM salas s JOIN sala_jugadores sj ON sj.sala_id = s.id
        WHERE sj.usuario_id = $1 AND s.estado <> 'cerrada' ORDER BY s.creado_en DESC`,
@@ -66,6 +72,7 @@ export class SalaRepository extends BaseRepository<Sala> {
     return this.filas<Sala & { anfitrion: string; jugadores: number; soy_miembro: boolean }>(
       `SELECT ${this.model.select('s')}, u.nombre AS anfitrion,
               (SELECT count(*)::int FROM sala_jugadores x WHERE x.sala_id = s.id) AS jugadores,
+              (s.password_hash IS NOT NULL) AS con_password,
               exists(SELECT 1 FROM sala_jugadores x WHERE x.sala_id = s.id AND x.usuario_id = $1) AS soy_miembro
        FROM salas s JOIN usuarios u ON u.id = s.anfitrion_id
        WHERE NOT s.privada AND s.estado <> 'cerrada' AND s.creado_en > now() - interval '3 days'

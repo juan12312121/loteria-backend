@@ -227,5 +227,72 @@ assert.ok(fin3.ganadores.length >= 1);
 await api('DELETE', `/salas/${sala.id}/bots/${bot1.id}`, { token: rosa.token, status: 204 });
 paso(`bots: juegan ${tablasDeBots.length} tablas y el tablero los revisa igual; ganó ${fin3.ganadores.map((g) => g.nombre).join(', ')}`);
 
+// --- amigos ---
+const yoAmigos = await api('GET', '/amigos', { token: rosa.token });
+assert.equal(yoAmigos.mi_codigo.length, 6);
+const deTono = await api('GET', '/amigos', { token: tono.token });
+await api('POST', '/amigos/solicitudes', { token: rosa.token, body: { codigo: deTono.mi_codigo } });
+await api('POST', '/amigos/solicitudes', { token: rosa.token, body: { codigo: deTono.mi_codigo }, status: 409 });
+await api('POST', '/amigos/solicitudes', { token: rosa.token, body: { codigo: yoAmigos.mi_codigo }, status: 422 });
+assert.equal((await api('GET', '/amigos', { token: tono.token })).pendientes[0].nombre, 'Rosa');
+await api('POST', `/amigos/solicitudes/${rosa.usuario.id}/aceptar`, { token: tono.token });
+const amigosDeRosa = await api('GET', '/amigos', { token: rosa.token });
+const amigoTono = amigosDeRosa.amigos.find((a) => a.id === tono.usuario.id);
+assert.ok(amigoTono, 'Tono debe aparecer en la lista de amigos');
+assert.equal(amigoTono.en_linea, true, 'Tono está conectado por socket');
+assert.equal(amigoTono.sala_codigo, sala.codigo, 'se ve en qué sala anda');
+const revanchas = await api('GET', `/amigos/${tono.usuario.id}/historial`, { token: rosa.token });
+assert.ok(revanchas.juntas >= 1 && revanchas.gane + revanchas.gano >= 1);
+paso(`amigos por código: ${revanchas.juntas} partidas juntos (Rosa ${revanchas.gane} – ${revanchas.gano} Tono)`);
+
+// --- niveles e insignia ---
+const nivel = (await api('GET', '/progreso', { token: ganador.token })).nivel;
+assert.ok(nivel.nivel >= 1 && nivel.insignia.nombre);
+if (nivel.porCobrar > 0) {
+  const cobro = await api('POST', '/progreso/nivel', { token: ganador.token });
+  assert.equal(cobro.nivel, nivel.nivel);
+  await api('POST', '/progreso/nivel', { token: ganador.token, status: 422 });
+  paso(`niveles: subió al ${cobro.nivel} (${cobro.insignia.nombre}) y cobró ${cobro.puntos} pts`);
+}
+
+// --- pase de temporada ---
+const pase = (await api('GET', '/progreso', { token: ganador.token })).pase;
+assert.equal(pase.niveles, 10);
+assert.equal(pase.premios.length, 10);
+assert.ok(pase.temporada.length === 7);
+if (pase.nivel >= 1) {
+  const cobrado = await api('POST', '/progreso/pase/1', { token: ganador.token });
+  assert.ok(cobrado.puntos > 0 || cobrado.fichas > 0);
+  await api('POST', '/progreso/pase/1', { token: ganador.token, status: 409 });
+}
+await api('POST', `/progreso/pase/${pase.nivel + 1}`, { token: ganador.token, status: 422 });
+paso(`pase de ${pase.temporada}: nivel ${pase.nivel} de 10 con ${pase.puntos} pts jugados`);
+
+// --- banco de fichas ---
+const antesBanco = await api('GET', '/progreso', { token: tono.token });
+if (antesBanco.banco.disponible) {
+  const prestamo = await api('POST', '/progreso/banco', { token: tono.token });
+  assert.equal(prestamo.fichas, antesBanco.banco.fichas + prestamo.regalo);
+  await api('POST', '/progreso/banco', { token: tono.token, status: 422 });
+  paso(`banco: prestó ${prestamo.regalo} fichas y solo una vez al día`);
+} else {
+  await api('POST', '/progreso/banco', { token: tono.token, status: 422 });
+  paso('banco: no presta si todavía traes fichas');
+}
+
+// --- sala con contraseña ---
+const conClave = await api('POST', '/salas', { token: rosa.token, body: { nombre: 'Con clave', password: 'frijol' } });
+assert.equal(conClave.password_hash, undefined);
+await api('POST', `/salas/unirse/${conClave.codigo}`, { token: tono.token, status: 401 });
+await api('POST', `/salas/unirse/${conClave.codigo}`, { token: tono.token, body: { password: 'nel' }, status: 401 });
+await api('POST', `/salas/unirse/${conClave.codigo}`, { token: tono.token, body: { password: 'frijol' } });
+assert.equal((await api('GET', '/salas/publicas', { token: tono.token })).find((s) => s.id === conClave.id).con_password, true);
+paso('sala con contraseña: sin ella no se entra (401) y el hash nunca sale del API');
+
+// --- avisos al celular ---
+await api('POST', '/avisos/dispositivos', { token: tono.token, body: { token: 'ExponentPushToken[prueba-e2e]' }, status: 204 });
+await api('DELETE', '/avisos/dispositivos/ExponentPushToken[prueba-e2e]', { token: tono.token, status: 204 });
+paso('registro y baja del token de avisos');
+
 socket.close();
 console.log('Todo bien ✔');

@@ -24,7 +24,8 @@ export class SalaController extends BaseController<Sala> {
 
   mias = async (req: Request, res: Response) => ApiResponse.ok(res, await this.salas.mias(req.actor!.id));
 
-  unirse = async (req: Request, res: Response) => ApiResponse.ok(res, await this.salas.unirse(req.params.codigo, req.actor!));
+  unirse = async (req: Request, res: Response) =>
+    ApiResponse.ok(res, await this.salas.unirse(req.params.codigo, req.actor!, String(req.body?.password ?? '')));
 
   salir = async (req: Request, res: Response) => {
     await this.salas.salir(req.params.id, req.actor!);

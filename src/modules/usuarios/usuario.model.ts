@@ -18,7 +18,11 @@ export interface Usuario {
   skin_avatar_id: string | null;
   skin_fondo_id: string | null;
   skin_tema_id: string | null;
+  codigo_amigo: string;
+  conectado: boolean;
   dias_seguidos: number;
+  ultimo_banco: string | null;
+  nivel_cobrado: number;
   ultimo_diario: string | null;
   mejor_racha: number;
   creado_en: string;
@@ -30,7 +34,8 @@ export class UsuarioModel extends BaseModel {
   columnas = [
     'id', 'nombre', 'correo', 'password_hash', 'rol', 'fichas', 'puntos', 'racha',
     'skin_ficha_id', 'skin_carta_id', 'skin_avatar_id', 'skin_fondo_id', 'skin_tema_id',
-    'dias_seguidos', 'ultimo_diario', 'mejor_racha', 'creado_en', 'actualizado_en',
+    'codigo_amigo', 'conectado', 'visto_en', 'dias_seguidos', 'ultimo_diario', 'ultimo_banco',
+    'mejor_racha', 'nivel_cobrado', 'creado_en', 'actualizado_en',
   ] as const;
   ocultas = ['password_hash'];
   filtrables = ['rol', 'correo'];
