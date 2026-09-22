@@ -107,6 +107,11 @@ const cantadasEnVivo = eventos.filter((e) => e.ev === 'carta:cantada').length;
 const logros = eventos.filter((e) => e.ev === 'figura:lograda');
 assert.equal(cantadasEnVivo, carta);
 assert.ok(logros.every((l) => l.d.figura.clave !== 'llena'));
+// Cada figura se gana una sola vez: todos sus ganadores la hicieron en la misma carta
+for (const clave of new Set(logros.map((l) => l.d.figura.clave))) {
+  const cartas = new Set(logros.filter((l) => l.d.figura.clave === clave).map((l) => l.d.carta));
+  assert.equal(cartas.size, 1, `${clave} no debe volver a ganarse en otra carta`);
+}
 paso(`en vivo: ${cantadasEnVivo} cartas, ${logros.length} avisos de figura, ganadores`);
 
 // --- puntos, skins y fichas ---

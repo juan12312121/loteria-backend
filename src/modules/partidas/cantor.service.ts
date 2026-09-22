@@ -113,8 +113,9 @@ export class CantorService {
 
   /**
    * Figuras intermedias (cuatro esquinas, La O…): se anuncian pero no terminan
-   * la ronda. Solo el primero en lograr cada una se lleva sus puntos; empates en
-   * la misma carta cuentan como primeros.
+   * la ronda. Cada figura se gana UNA vez por ronda: quien la hace primero se
+   * la queda y los demás ya no pueden hacerla. Si varios la completan con la
+   * misma carta, todos la ganan (llegaron al mismo tiempo).
    */
   private async anunciarLogros(salaId: string, revision: Revision) {
     const intermedias = await this.figuras.intermediasExcepto(revision.partida.figura_id);
@@ -128,14 +129,16 @@ export class CantorService {
   private async buscarLogrosNuevos({ partida, indice, tablas, cantadas }: Revision, intermedias: Figura[]): Promise<LogroNuevo[]> {
     const previos = await this.logros.previos(partida.id);
     const yaTiene = new Set(previos.map((p) => `${p.partida_tabla_id}:${p.figura_id}`));
-    const figurasYaLogradas = new Set(previos.filter((p) => p.indice < indice).map((p) => p.figura_id));
+    // Figuras que alguien ya ganó en una carta anterior: quedan cerradas para todos
+    const cerradas = new Set(previos.filter((p) => p.indice < indice).map((p) => p.figura_id));
+    const abiertas = intermedias.filter((f) => !cerradas.has(f.id));
     const nuevos: LogroNuevo[] = [];
     for (const tabla of tablas) {
       const mascaraTabla = mascaraCantadas(tabla.cartas, cantadas);
-      for (const figura of intermedias) {
+      for (const figura of abiertas) {
         if (yaTiene.has(`${tabla.id}:${figura.id}`)) continue;
         const mascara = validarFigura(mascaraTabla, figura.mascaras);
-        if (mascara !== null) nuevos.push({ tabla, figura, mascara, primero: !figurasYaLogradas.has(figura.id) });
+        if (mascara !== null) nuevos.push({ tabla, figura, mascara, primero: true });
       }
     }
     return nuevos;
